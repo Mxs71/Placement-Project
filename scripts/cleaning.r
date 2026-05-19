@@ -73,6 +73,7 @@ Demo_c <- Demo_c %>%
     age_grp == "T" & is.na(age) ~ 15,
     age_grp == "A" & is.na(age) ~ 49,
     age_grp == "E" & is.na(age) ~ 74,
+    age > 127 ~ age / 10,
     TRUE ~ age
     )) %>%
 #Replace missing values with median values of age group
@@ -102,6 +103,50 @@ Demo_c <- Demo_c %>%
     age_grp == "A" & !is.na(wt) & wt >= 500 ~ wt / 10,
     age_grp == "E" & !is.na(wt) & wt >= 1000 ~ wt / 1000,
     TRUE ~ wt
-  ))
+  )) %>%
+  replace_na(list(age = 58)) %>%
+  replace_na(list(wt = 75)) %>%
+  replace_na(list(age_grp = "A"))
+
 summary(Demo_c)
 
+#Lots of missing data, perticularly info about the drugs rather than what the actual drug is
+#Cannot replace the missing data
+#Should still be usable as analysis needs the primarily names and groups
+Drug_c <- Drug
+glimpse(Drug_c)
+
+#Columns missing data
+sum(is.na(Drug_c$prod_ai)) #35272
+sum(is.na(Drug_c$route)) #788704
+sum(is.na(Drug_c$cum_dose_chr)) #1671961
+sum(is.na(Drug_c$cum_dose_unit)) #1671961
+sum(is.na(Drug_c$dechal)) #714633
+sum(is.na(Drug_c$rechal)) #139551
+sum(is.na(Drug_c$dose_amt)) #1036943
+sum(is.na(Drug_c$dose_unit)) #1036943
+sum(is.na(Drug_c$dose_form)) #1069364
+sum(is.na(Drug_c$dose_freq)) #1338498
+
+Indi_c <- Indi
+#Indication dataset is already clean
+summary(Indi_c)
+
+Outc_c <- Outc
+#Outcomes dataset is already clean
+summary(Outc_c)
+
+Reac_c <- Reac
+summary(Reac_c)
+sum(is.na(Reac_c$drug_rec_act))
+#Dataset mostly clean, Drug recur action data has large ammount missing data
+#cannot replace so will leave as it
+
+Rpsr_c <- Rpsr
+#Dataset is already clean
+summary(Rpsr_c)
+
+Ther_c <- Ther
+#Lot's of missing data, but no way to replace
+#Most of the data is not needed for final analysis in any case
+summary(Ther_c)

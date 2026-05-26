@@ -133,3 +133,9 @@ demo_drug_ther <- demo_drug %>%
 
 demo_rpsr <- Demo_c %>%
   left_join(Rpsr_c, by = "primaryid")
+
+write.csv(demo_reac, "data_clean/demo_reac.csv", row.names = FALSE)
+write.csv(demo_outc, "data_clean/demo_outc.csv", row.names = FALSE)
+write.csv(demo_drug, "data_clean/demo_drug.csv", row.names = FALSE)
+write.csv(demo_drug_ther, "data_clean/demo_drug_ther.csv", row.names = FALSE)
+write.csv(demo_rpsr, "data_clean/demo_rpsr.csv", row.names = FALSE)

@@ -1,5 +1,9 @@
 library(tidyverse)
-library(ggplot2)
+library(stringr)
+library(data.table)
+library(stringdist)
+library(fuzzyjoin)
+library(readxl)
 
 
 Demo <- read_delim("data_raw/ASCII/DEMO26Q1.txt", delim = "$")
@@ -85,6 +89,54 @@ Demo_c <- Demo_c %>%
 #Cannot replace the missing data
 #Should still be usable as analysis needs the primarily names and groups
 Drug_c <- Drug
+Drug_c[, id := .I]
+atc <- read.csv("data_raw/WHO ATC-DDD 2026-04-25.csv")
+ref <- data.table(name = atc$atc_name)
+
+setDT(Drug_c)
+setDT(ref)
+
+normalize_name <- function(x) {
+  x <- tolower(x)
+  x <- str_replace_all(x, "\\b(\\d+mg|\\d+g|\\d+ml|\\d+mcg)\\b", "")
+  x <- str_replace_all(x, "\\b(iv|po|im|sc|topical|oral)\\b", "")
+  x <- str_replace_all(x, "[^a-z0-9 ]", " ")
+  x <- str_squish(x)
+  return(x)
+}
+
+Drug_c[, normalized := normalize_name(drugname)]
+ref[, name_norm := normalize_name(name)]
+
+ref_names <- unique(ref$name_norm)
+
+Drug_c[, exact_match := normalized %in% ref_names]
+Drug_c[, matched_exact := ifelse(exact_match, normalized, NA)]
+
+drug_unmatched <- Drug_c[exact_match == FALSE, .(id, normalized)]
+
+ref_split <- split(ref$name_norm, substr(ref$name_norm, 1, 1))
+
+best_match <- function(x) {
+  # If x is empty or NA
+  if (is.na(x) || x == "") return(NA_character_)
+  first <- substr(x, 1, 1)
+  candidates <- ref_split[[first]]
+  if (is.null(candidates) || length(candidates) == 0) {
+    return(NA_character_)
+  }
+  d <- stringdist(x, candidates, method = "lv")
+  if (length(d) == 0 || all(is.na(d))) {
+    return(NA_character_)
+  }
+  candidates[which.min(d)]
+}
+
+drug_unmatched[, fuzzy := vapply(normalized, best_match, FUN.VALUE = character(1))]
+
+Drug_c[drug_unmatched, on = "id", final_name := i.fuzzy]
+
+
 
 #Columns missing data
 #Drug - prod_ai - 35272

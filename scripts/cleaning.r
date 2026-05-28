@@ -4,6 +4,7 @@ library(data.table)
 library(stringdist)
 library(fuzzyjoin)
 library(readxl)
+library(fst)
 
 
 quarters <- list(
@@ -140,7 +141,7 @@ ref_names <- unique(ref$name_norm)
 Drug_c[, exact_match := normalized %in% ref_names]
 Drug_c[, matched_exact := ifelse(exact_match, normalized, NA)]
 
-drug_unmatched <- Drug_c[exact_match == FALSE, .(id, normalized)]
+drug_unmatched <- Drug_c[exact_match == FALSE, .(primaryid, normalized)]
 
 ref_split <- split(ref$name_norm, substr(ref$name_norm, 1, 1))
 
@@ -159,10 +160,13 @@ best_match <- function(x) {
   candidates[which.min(d)]
 }
 
-drug_unmatched[, fuzzy := vapply(normalized, best_match, FUN.VALUE = character(1))]
+unique_unmatched <- unique(drug_unmatched$normalized)
+unique_unmatched_dt <- data.table(normalized = unique_unmatched)
+unique_unmatched_dt[, fuzzy := vapply(normalized, best_match, FUN.VALUE = character(1))]
 
-Drug_c[drug_unmatched, on = "id", final_name := i.fuzzy]
+drug_unmatched[unique_unmatched_dt, on = "normalized", fuzzy := i.fuzzy]
 
+Drug_c[drug_unmatched, on = "primaryid", final_name := i.fuzzy]
 
 
 #Columns missing data
@@ -177,7 +181,6 @@ Drug_c[drug_unmatched, on = "id", final_name := i.fuzzy]
 #Drug - dose_form - 1069364
 #Drug - dose_freq - 1338498
 
-#Drug - prod_ai - 
 
 Indi_c <- Indi
 #Indication dataset is already clean
@@ -203,9 +206,27 @@ demo_reac <- Demo_c %>%
 demo_outc <- Demo_c %>%
   left_join(Outc_c, by = "primaryid")
 
+Drug_c <- as.data.frame(Drug_c)
+
 demo_drug <- Demo_c %>%
   left_join(Drug_c, by = c("primaryid", "caseid")) %>%
-  left_join(Indi_c, by = c("primaryid", "caseid", "drug_seq" = "indi_drug_seq"))
+  left_join(Indi_c, by = c("primaryid", "caseid", "drug_seq" = "indi_drug_seq")) %>%
+  select(
+    # Join keys
+    primaryid, caseid, drug_seq,
+    # Drug identity
+    drugname, normalized,
+    # Time (Module 1 — reporting trends)
+    fda_dt,
+    # Drug role — needed to document multi-drug report handling per brief
+    role_cod,
+    # Indication (Module 2 — reaction profile context)
+    indi_pt,
+    # Demographics (Module 4 — population context)
+    age, age_grp, sex, wt,
+    # Reporter metadata (Module 4 — optional filters)
+    occp_cod, reporter_country
+  )
 
 demo_drug_ther <- demo_drug %>%
   left_join(Ther_c, by = c("primaryid", "caseid", "drug_seq" = "dsg_drug_seq"))
@@ -213,8 +234,8 @@ demo_drug_ther <- demo_drug %>%
 demo_rpsr <- Demo_c %>%
   left_join(Rpsr_c, by = "primaryid")
 
-write.csv(demo_reac, "data_clean/demo_reac.csv", row.names = FALSE)
-write.csv(demo_outc, "data_clean/demo_outc.csv", row.names = FALSE)
-write.csv(demo_drug, "data_clean/demo_drug.csv", row.names = FALSE)
-write.csv(demo_drug_ther, "data_clean/demo_drug_ther.csv", row.names = FALSE)
-write.csv(demo_rpsr, "data_clean/demo_rpsr.csv", row.names = FALSE)
+write_fst(demo_reac, "data_clean/demo_reac.fst", compress = 50)
+write_fst(demo_outc, "data_clean/demo_outc.fst", compress = 50)
+write_fst(demo_drug, "data_clean/demo_drug.fst", compress = 50)
+write_fst(demo_drug_ther, "data_clean/demo_drug_ther.fst", compress = 50)
+write_fst(demo_rpsr, "data_clean/demo_rpsr.fst", compress = 50)

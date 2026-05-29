@@ -1,5 +1,3 @@
-demo_drug <- fread("../data_clean/demo_drug.csv")
-
 sidebar <- dashboardSidebar(
     sidebarMenu(
         menuItem("Reporting Trends", tabName = "reports"),
@@ -12,24 +10,35 @@ sidebar <- dashboardSidebar(
 body <- dashboardBody(
     tabItems(
         tabItem(tabName = "reports",
-        card(card_header("Reporting Trends and Volumes"), 
+        box(title = "Reporting Trends and Volumes", 
             plotOutput("reports")),
-        br(),
-        fluidRow(
-            column(width = 3, card(selectInput("selected_drugs", "Drugs", choices = unique(demo_drug$normalized))))),
-            column(width = 3, card(selectInput("time_agg", "Time Aggregation", choices = c("week", "month", "quarter", "year")))),
-            column(width = 3, card(checkboxInput("rolling", "Show Trend Line", value = FALSE)))
-        )),
+            fluidRow(
+                column(width = 3, box(selectizeInput("selected_drugs", "Drugs", choices = NULL, multiple = TRUE, options = list(maxItems = 2)))),
+                column(width = 3, box(selectInput("time_agg", "Time Aggregation", choices = c("week", "month", "quarter", "year")))),
+                column(width = 3, box(checkboxInput("rolling", "Show Trend Line", value = FALSE)))
+            )
+        ),
         tabItem(tabName = "reaction",
-        card(card_header("Reaction Profiles"),
-            "Card Body")),
+        box(title = "Reaction Profiles",
+            plotOutput("reactions")),
+            fluidRow(
+                column(width = 3, box(selectizeInput("selected_drugs_reac", "Drugs", choices = NULL, multiple = TRUE, options = list(maxItems = 2))))
+            )
+        ),
         tabItem(tabName = "outcomes",
-        card(card_header("Seriousness and Outcomes"),
-            "Card Body")),
+        box(title = "Seriousness and Outcomes",
+            plotOutput("outcomes")),
+            br(),
+            fluidRow(
+                column(width = 3, box(selectInput("age", "Age Group", choices = c("Neonate" = "N", "Infant" = "I", "Child" = "C", "Adolescent" = "T", "Adult" = "A", "Elderly" = "E"))))
+            )
+        ),
         tabItem(tabName = "population",
-        card(card_header("Population Context"),
-            "Card Body"))
+        box(title = "Population Context",
+            "Card Body")
+        )
     )
+)
 
 
 ui <- dashboardPage(

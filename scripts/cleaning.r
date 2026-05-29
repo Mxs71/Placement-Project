@@ -200,11 +200,9 @@ Ther_c <- Ther
 #Most of the data is not needed for final analysis in any case
 
 
-demo_reac <- Demo_c %>%
-  left_join(Reac_c, by = "primaryid")
 
 demo_outc <- Demo_c %>%
-  left_join(Outc_c, by = "primaryid")
+  left_join(Outc_c, by = c("primaryid", "caseid"))
 
 Drug_c <- as.data.frame(Drug_c)
 
@@ -231,11 +229,15 @@ demo_drug <- Demo_c %>%
 demo_drug_ther <- demo_drug %>%
   left_join(Ther_c, by = c("primaryid", "caseid", "drug_seq" = "dsg_drug_seq"))
 
+demo_drug_reac <- demo_drug %>%
+  left_join(Reac_c, by = "primaryid")
+
 demo_rpsr <- Demo_c %>%
   left_join(Rpsr_c, by = "primaryid")
 
-write_fst(demo_reac, "data_clean/demo_reac.fst", compress = 50)
+
 write_fst(demo_outc, "data_clean/demo_outc.fst", compress = 50)
 write_fst(demo_drug, "data_clean/demo_drug.fst", compress = 50)
 write_fst(demo_drug_ther, "data_clean/demo_drug_ther.fst", compress = 50)
+write_fst(demo_drug_reac, "data_clean/demo_drug_reac.fst", compress = 50)
 write_fst(demo_rpsr, "data_clean/demo_rpsr.fst", compress = 50)

@@ -210,19 +210,17 @@ demo_drug <- Demo_c %>%
   left_join(Drug_c, by = c("primaryid", "caseid")) %>%
   left_join(Indi_c, by = c("primaryid", "caseid", "drug_seq" = "indi_drug_seq")) %>%
   select(
-    # Join keys
     primaryid, caseid, drug_seq,
     # Drug identity
     drugname, normalized,
-    # Time (Module 1 — reporting trends)
+    #Module 1
     fda_dt,
-    # Drug role — needed to document multi-drug report handling per brief
     role_cod,
-    # Indication (Module 2 — reaction profile context)
+    #Module 2
     indi_pt,
-    # Demographics (Module 4 — population context)
+    #Module 4
     age, age_grp, sex, wt,
-    # Reporter metadata (Module 4 — optional filters)
+    #Module 4
     occp_cod, reporter_country
   )
 

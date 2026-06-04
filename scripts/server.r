@@ -8,14 +8,14 @@ if (!file.exists(fst_file) && file.exists(gz_file)) {
 
 # Drug time series: use drug-level table (not inflated by per-reaction rows)
 demo_drug_slim <- read_fst(file.path(data_dir, "demo_drug_ther.fst"),
-    columns = c("normalized", "fda_dt"),
+    columns = c("normalized", "fda_dt", "n"),
     as.data.table = TRUE)
 demo_drug_slim <- demo_drug_slim %>%
     select(order(colnames(demo_drug_slim)))
 
 # Reaction butterfly: only needs drug name + reaction term
 demo_reac_slim <- read_fst(file.path(data_dir, "demo_drug_reac.fst"),
-    columns = c("normalized", "pt"),
+    columns = c("normalized", "pt", "n"),
     as.data.table = TRUE)
 demo_reac_slim <- demo_reac_slim %>%
     select(order(colnames(demo_reac_slim)))

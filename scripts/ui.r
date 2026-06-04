@@ -10,7 +10,7 @@ sidebar <- dashboardSidebar(
 
 body <- dashboardBody(
     tags$head(
-        tags$link(rel = "stylesheet", type = "text/css", href = "design.css")
+        includeCSS(if (file.exists("www/design.css")) "www/design.css" else "scripts/www/design.css")
     ),
     tabItems(
         tabItem(tabName = "home",

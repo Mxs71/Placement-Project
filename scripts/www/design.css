@@ -1,0 +1,10 @@
+.intro-text {
+    padding: 10px 20px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    margin: 0 15px;
+}
+
+.js-plotly-plot .plotly text {
+    font-family: "Source Sans Pro", sans-serif !important;
+}

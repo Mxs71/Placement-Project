@@ -110,7 +110,32 @@ Demo_c <- Demo_c %>%
   )) %>%
   replace_na(list(age = unname(age_med[["A"]]),
                   wt = unname(wt_med[["A"]]),
-                  age_grp = "A"))
+                  age_grp = "A",
+                  sex = "UNK")) %>%
+  mutate(reporter_country = case_when(
+    reporter_country == "PS" ~ "GZ", #Change Palestine code to GENC
+    reporter_country == "XI" ~ "GB", #Northern Ireland → UK
+    reporter_country == "UM" ~ "US", #US territories → US
+    reporter_country == "AX" ~ "FI", #Åland → Finland
+    TRUE ~ reporter_country
+  ))
+
+
+GENC <- read_excel("data_raw/GENC_Standard_Index.xlsx", sheet = "Codes_for_GE_Names")
+ref_country <- GENC %>%
+  select(`2-character Code`, `Short Name`) %>%
+  rename(country_name = `Short Name`)
+
+Demo_c <- Demo_c %>%
+  left_join(ref_country, by = c("reporter_country" = "2-character Code")) %>%
+  mutate(country_name = coalesce(country_name, case_when(
+    reporter_country %in% c("EU", "COUNTRY NOT SPECIFIED") ~ "Other",
+    TRUE ~ NA_character_
+  )))
+
+Demo_c <- Demo_c %>%
+  filter(is.na(fda_dt) | as.integer(substr(as.character(fda_dt), 1, 4)) >= 2025)
+
 
 
 #Lots of missing data, perticularly info about the drugs rather than what the actual drug is
@@ -126,37 +151,43 @@ setDT(ref)
 
 normalize_name <- function(x) {
   x <- tolower(x)
-  x <- str_replace_all(x, "\\b(\\d+mg|\\d+g|\\d+ml|\\d+mcg)\\b", "")
-  x <- str_replace_all(x, "\\b(iv|po|im|sc|topical|oral)\\b", "")
-  x <- str_replace_all(x, "[^a-z0-9 ]", " ")
+  # Dosages with optional space between number and unit (e.g. "500 mg", "10mg/ml", "250mcg")
+  x <- str_replace_all(x, "\\d+[.,]?\\d*\\s*(mg|mcg|ug|g|ml|l|iu|mmol|units?|%)(/\\S*)?", "")
+  # Formulation and dosage form keywords
+  x <- str_replace_all(x, "\\b(tablets?|tabs?|capsules?|caps?|injections?|solutions?|suspensions?|creams?|gels?|ointments?|patches?|sprays?|powders?|drops|syrup|elixir|lozenges?|suppositories?|implants?|films?|emulsions?|infusions?)\\b", "")
+  # Modified-release qualifiers and salt forms
+  x <- str_replace_all(x, "\\b(extended[- ]release|modified[- ]release|sustained[- ]release|immediate[- ]release|er|mr|sr|xr|ir|xl|la|cr|cd|dr|ec|hci|hcl|hydrochloride|sodium|potassium|calcium|sulfate|phosphate|acetate|citrate|mesylate|maleate|tartrate|besylate|fumarate|succinate|gluconate|bromide|chloride|nitrate|monohydrate|dihydrate)\\b", "")
+  # Route of administration
+  x <- str_replace_all(x, "\\b(iv|po|im|sc|sq|topical|oral|ophthalmic|nasal|inhaled?|intravenous|intramuscular|subcutaneous|transdermal)\\b", "")
+  x <- str_replace_all(x, "[^a-z ]", " ")
   x <- str_squish(x)
   return(x)
 }
 
-Drug_c[, normalized := normalize_name(drugname)]
+Drug_c[, normalized := normalize_name(prod_ai)]
 ref[, name_norm := normalize_name(name)]
 
 ref_names <- unique(ref$name_norm)
 
 Drug_c[, exact_match := normalized %in% ref_names]
-Drug_c[, matched_exact := ifelse(exact_match, normalized, NA)]
+Drug_c[, final_name := ifelse(exact_match, normalized, NA_character_)]
 
-drug_unmatched <- Drug_c[exact_match == FALSE, .(primaryid, normalized)]
+# Include row id so the join-back correctly handles multiple drugs per case
+drug_unmatched <- Drug_c[exact_match == FALSE, .(id, normalized)]
 
 ref_split <- split(ref$name_norm, substr(ref$name_norm, 1, 1))
 
-best_match <- function(x) {
-  # If x is empty or NA
+# Skip multi-word strings (non-drug free-text entries); reject matches beyond threshold
+best_match <- function(x, threshold = 2) {
   if (is.na(x) || x == "") return(NA_character_)
+  if (str_count(x, "\\S+") > 2) return(NA_character_)
   first <- substr(x, 1, 1)
   candidates <- ref_split[[first]]
-  if (is.null(candidates) || length(candidates) == 0) {
-    return(NA_character_)
-  }
+  if (is.null(candidates) || length(candidates) == 0) return(NA_character_)
   d <- stringdist(x, candidates, method = "lv")
-  if (length(d) == 0 || all(is.na(d))) {
-    return(NA_character_)
-  }
+  if (length(d) == 0 || all(is.na(d))) return(NA_character_)
+  min_d <- min(d, na.rm = TRUE)
+  if (min_d > threshold) return(NA_character_)
   candidates[which.min(d)]
 }
 
@@ -166,7 +197,8 @@ unique_unmatched_dt[, fuzzy := vapply(normalized, best_match, FUN.VALUE = charac
 
 drug_unmatched[unique_unmatched_dt, on = "normalized", fuzzy := i.fuzzy]
 
-Drug_c[drug_unmatched, on = "primaryid", final_name := i.fuzzy]
+# Join on row id (not primaryid) to avoid cross-drug contamination within the same case
+Drug_c[drug_unmatched, on = "id", final_name := ifelse(is.na(final_name), i.fuzzy, final_name)]
 
 
 #Columns missing data
@@ -221,7 +253,7 @@ demo_drug <- Demo_c %>%
     #Module 4
     age, age_grp, sex, wt,
     #Module 4
-    occp_cod, reporter_country
+    occp_cod, reporter_country, country_name
   )
 
 demo_drug_ther <- demo_drug %>%
@@ -235,7 +267,6 @@ demo_rpsr <- Demo_c %>%
 
 
 write_fst(demo_outc, "data_clean/demo_outc.fst", compress = 50)
-write_fst(demo_drug, "data_clean/demo_drug.fst", compress = 50)
 write_fst(demo_drug_ther, "data_clean/demo_drug_ther.fst", compress = 50)
 write_fst(demo_drug_reac, "data_clean/demo_drug_reac.fst", compress = 50)
 write_fst(demo_rpsr, "data_clean/demo_rpsr.fst", compress = 50)

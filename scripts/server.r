@@ -1,23 +1,27 @@
-if (!file.exists("../data_clean/demo_drug_reac.fst")) {
-  R.utils::gunzip("../data_clean/demo_drug_reac.fst.gz", destname = "../data_clean/demo_drug_reac.fst", remove = FALSE)
+data_dir <- if (dir.exists("../data_clean")) "../data_clean" else "data_clean"
+
+fst_file <- file.path(data_dir, "demo_drug_reac.fst")
+gz_file  <- file.path(data_dir, "demo_drug_reac.fst.gz")
+if (!file.exists(fst_file) && file.exists(gz_file)) {
+  R.utils::gunzip(gz_file, destname = fst_file, remove = FALSE)
 }
 
 # Drug time series: use drug-level table (not inflated by per-reaction rows)
-demo_drug_slim <- read_fst("../data_clean/demo_drug_ther.fst",
+demo_drug_slim <- read_fst(file.path(data_dir, "demo_drug_ther.fst"),
     columns = c("normalized", "fda_dt"),
     as.data.table = TRUE)
 demo_drug_slim <- demo_drug_slim %>%
     select(order(colnames(demo_drug_slim)))
 
 # Reaction butterfly: only needs drug name + reaction term
-demo_reac_slim <- read_fst("../data_clean/demo_drug_reac.fst",
+demo_reac_slim <- read_fst(file.path(data_dir, "demo_drug_reac.fst"),
     columns = c("normalized", "pt"),
     as.data.table = TRUE)
 demo_reac_slim <- demo_reac_slim %>%
     select(order(colnames(demo_reac_slim)))
 
 # Outcomes + population demographics: case-level table
-demo_outc <- read_fst("../data_clean/demo_outc.fst",
+demo_outc <- read_fst(file.path(data_dir, "demo_outc.fst"),
     columns = c("primaryid", "age_grp", "fda_dt", "outc_cod", "occp_cod", "reporter_country", "country_name", "sex"),
     as.data.table = TRUE)
 demo_outc <- demo_outc %>% mutate(age_grp = factor(age_grp, levels = c("N", "I", "C", "T", "A", "E")))
@@ -63,13 +67,13 @@ server <- function(input, output, session) {
             quarter_label <= input$year_to
         ) %>%
         mutate(period = floor_date(as.Date(as.character(fda_dt), "%Y%m%d"), input$time_agg)) %>%
-        count(period, normalized)
+        group_by(period, normalized) %>%
+        summarise(n = sum(n), .groups = "drop")
     })
     filtered_reac <- reactive({
         req(input$selected_drugs_reac, length(input$selected_drugs_reac) == 2)
         demo_reac_slim %>%
             filter(normalized %in% input$selected_drugs_reac) %>%
-            count(normalized, pt) %>%
             group_by(pt) %>%
             mutate(total = sum(n)) %>%
             ungroup() %>%
@@ -120,7 +124,9 @@ server <- function(input, output, session) {
         req(input$selected_drugs_reac)
         demo_reac_slim %>%
             filter(normalized %in% input$selected_drugs_reac) %>%
-            count(pt, sort = TRUE) %>%
+            group_by(pt) %>%
+            summarise(n = sum(n), .groups = "drop") %>%
+            arrange(desc(n)) %>%
             slice(1)
     })
     kpi_outcomes <- reactive({

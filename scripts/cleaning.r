@@ -266,7 +266,24 @@ demo_rpsr <- Demo_c %>%
   left_join(Rpsr_c, by = "primaryid")
 
 
-write_fst(demo_outc, "data_clean/demo_outc.fst", compress = 50)
-write_fst(demo_drug_ther, "data_clean/demo_drug_ther.fst", compress = 50)
-write_fst(demo_drug_reac, "data_clean/demo_drug_reac.fst", compress = 50)
-write_fst(demo_rpsr, "data_clean/demo_rpsr.fst", compress = 50)
+write_fst(
+  demo_outc %>%
+    select(primaryid, age_grp, fda_dt, outc_cod, occp_cod, reporter_country, country_name, sex) %>%
+    mutate(across(where(is.character), as.factor)),
+  "data_clean/demo_outc.fst", compress = 100)
+
+write_fst(
+  demo_drug_ther %>%
+    select(normalized, fda_dt) %>%
+    filter(!is.na(fda_dt)) %>%
+    count(normalized, fda_dt) %>%
+    mutate(normalized = as.factor(normalized)),
+  "data_clean/demo_drug_ther.fst", compress = 100)
+
+write_fst(
+  demo_drug_reac %>%
+    select(normalized, pt) %>%
+    filter(!is.na(normalized), !is.na(pt)) %>%
+    count(normalized, pt) %>%
+    mutate(across(c(normalized, pt), as.factor)),
+  "data_clean/demo_drug_reac.fst", compress = 100)

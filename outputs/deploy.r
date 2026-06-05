@@ -6,6 +6,7 @@ rsconnect::deployApp(
     "scripts/server.r",
     "scripts/ui.r",
     "scripts/www/design.css",
+    "scripts/www/FDA_logo.png",
     paste0("data_clean/", list.files("data_clean", recursive = TRUE))
   ),
   appName = "placement-project"

@@ -95,7 +95,15 @@ body <- dashboardBody(
 
 
 ui <- dashboardPage(
-    dashboardHeader(title = "FAERS Dashboard"),
+    title = "FAERS Dashboard",
+    dashboardHeader(
+        title = tags$a(
+            tags$img(src = "FDA_logo.png", height = "40px", style = "margin-right: 8px; vertical-align: middle;"),
+            "FAERS Dashboard",
+            style = "color: white; text-decoration: none;"
+        ),
+        titleWidth = 280
+    ),
     sidebar,
     body
 )
